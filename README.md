@@ -14,3 +14,10 @@ you can also modify the code for output audio info in the steam[1]
 you must have ffmpeg-python and ffprobe.exe installed in C:\Windows\system32\ folder 
 
 pip install ffmpeg-python
+
+
+TO DO FUNCTIONS
+
+1. single file as the input file
+2. more containers supported, like mkv files
+3. Catch exceptions for those abnormal cases
