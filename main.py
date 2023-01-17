@@ -96,6 +96,8 @@ if __name__ == '__main__':
         else:
             mp4_list = filter_mp4_video(video_path.strip('"'))
 
+# this is part should be rewritten in function, currently not action for the compiled version 
+
             for i in range(len(mp4_list)):
                 get_mp4_video_info(mp4_list[i])
                 print(video_info_list[i])
