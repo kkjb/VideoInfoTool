@@ -66,31 +66,47 @@ def get_video_audio_info(file_path):
         return None, None, None, None, None
 
 # 遍历文件夹中的所有视频文件
-def analyze_videos_in_folder(folder_path):
+def analyze_videos_in_folder(folder_path, recursive=True):
     result = []
-    total = 0
-    for root, dirs, files in os.walk(folder_path):
-        for file in files:
-            if file.lower().endswith(('.mp4', '.mkv', '.avi', '.mov', '.flv', '.webm')):
-                total += 1
+    allowed_exts = ('.mp4', '.mkv', '.avi', '.mov', '.flv', '.webm')
 
+    # 生成待处理的文件列表，根据 recursive 决定遍历方式
+    def iter_files():
+        if recursive:
+            for root, dirs, files in os.walk(folder_path):
+                for file in files:
+                    yield root, file
+        else:
+            try:
+                with os.scandir(folder_path) as it:
+                    for entry in it:
+                        if entry.is_file():
+                            yield folder_path, entry.name
+            except Exception:
+                return
+
+    # 收集符合后缀的文件
+    file_entries = []
+    for root, file in iter_files():
+        if file.lower().endswith(allowed_exts):
+            file_entries.append((root, file))
+
+    total = len(file_entries)
     processed = 0
-    for root, dirs, files in os.walk(folder_path):
-        for file in files:
-            if file.lower().endswith(('.mp4', '.mkv', '.avi', '.mov', '.flv', '.webm')):
-                processed += 1
-                file_path = os.path.join(root, file)
-                codec_name, video_bitrate, width, height, audio_bitrates = get_video_audio_info(file_path)
 
-                if codec_name:
-                    # 若有多个音频流，为每个音频流单独一行；没有音频流时 audio_bitrates 为 ['N/A']
-                    for audio_bitrate in audio_bitrates:
-                        result.append([file, codec_name, video_bitrate, width, height, audio_bitrate])
-                else:
-                    result.append([file, 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'])
+    for root, file in file_entries:
+        processed += 1
+        file_path = os.path.join(root, file)
+        codec_name, video_bitrate, width, height, audio_bitrates = get_video_audio_info(file_path)
 
-                # 简单进度提示
-                print(f"[{processed}/{total}] {file}")
+        if codec_name:
+            for audio_bitrate in audio_bitrates:
+                result.append([file, codec_name, video_bitrate, width, height, audio_bitrate])
+        else:
+            result.append([file, 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'])
+
+        # 简单进度提示
+        print(f"[{processed}/{total}] {file}")
 
     # 将结果写入 CSV 文件（保留原来的 GBK 编码以兼容中文 Excel）
     out_csv = os.path.join(folder_path, '分析结果.csv')
@@ -118,19 +134,28 @@ def analyze_single_file(file_path):
 if __name__ == '__main__':
     File_name = ''
 
-    if len(sys.argv) != 2:
-        File_name = input(
-            '请拖入文件夹路径到软件图标上或者拖入终端窗口里,并回车:\n'
-        )
+    # 命令行支持:
+    #   python videoinfo.py <path> [Y|N]
+    # 交互支持: 询问是否遍历子目录（默认 Y）
+    if len(sys.argv) == 1:
+        File_name = input('请拖入文件夹路径到软件图标上或者拖入终端窗口里,并回车:\n')
         if File_name == '':
             print("no input")
             time.sleep(5)
             exit()
-        else:
-            analyze_videos_in_folder(File_name.strip('"'))
+        yn = input('是否遍历子目录? (Y/N) [Y]: ').strip().lower()
+        recursive = True if yn == '' or yn.startswith('y') else False
+        analyze_videos_in_folder(File_name.strip('"'), recursive=recursive)
     else:
         File_name = sys.argv[1].strip('"')
+        # 若提供了第二个命令行参数，则按其决定是否递归（Y/N），否则默认递归
+        if len(sys.argv) >= 3:
+            arg = sys.argv[2].strip().lower()
+            recursive = True if arg.startswith('y') else False
+        else:
+            recursive = True
+
         if os.path.isdir(File_name):
-            analyze_videos_in_folder(File_name)
+            analyze_videos_in_folder(File_name, recursive=recursive)
         else:
             analyze_single_file(File_name)
